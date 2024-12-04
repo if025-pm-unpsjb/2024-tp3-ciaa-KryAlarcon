@@ -1,45 +1,43 @@
-#include <stdint.h>
-#include <stdbool.h>
-#include "uart.h"  // Incluye las definiciones específicas para la UART en tu hardware.
+#include "../../example/inc/app.h"         // <= Su propia cabecera (opcional)
 
-#define UART_BUFFER_SIZE 128
+#include "sapi.h"        // <= Biblioteca sAPI
 
-static char uart_buffer[UART_BUFFER_SIZE];
+#define BUFFER_SIZE 128
 
-void uart_echo_server(void) {
-    uint16_t index = 0;
+// FUNCION PRINCIPAL, PUNTO DE ENTRADA AL PROGRAMA LUEGO DE ENCENDIDO O RESET.
+int main( void )
+{
 
-    while (1) {
-        // Polling para leer datos de la UART
-        if (uart_is_data_ready()) { // Función específica que indica si hay datos disponibles en UART
-            char c = uart_read_char(); // Función para leer un carácter desde la UART
+   boardConfig();
+   char buffer[BUFFER_SIZE]; // Buffer para almacenar el mensaje recibido
+   size_t index = 0;         // Índice del buffer
 
-            // Almacenar el carácter en el buffer
-            uart_buffer[index++] = c;
+   uartConfig( UART_USB, 9600 );
 
-            // Si el carácter es '\n', enviamos el mensaje completo de vuelta
-            if (c == '\n' || index >= UART_BUFFER_SIZE - 1) {
-                uart_buffer[index] = '\0'; // Terminar la cadena para seguridad
+   char byteIngresado;
+   while (true) {
 
-                // Enviar el mensaje de vuelta por la UART
-                for (uint16_t i = 0; i < index; i++) {
-                    uart_send_char(uart_buffer[i]); // Función para enviar un carácter por UART
-                }
 
-                // Reiniciar el índice del buffer
-                index = 0;
-            }
-        }
-    }
-}
+           // Leer byte desde UART_USB por polling
+           if (uartReadByte(UART_USB, &byteIngresado)) {
+               // Almacenar el byte leído en el buffer
+               buffer[index++] = byteIngresado;
 
-int main(void) {
-    // Inicializar la UART
-    uart_init(); // Inicializa UART con configuración predefinida (velocidad, bits de parada, etc.)
+               // Si se encuentra el terminador '\n' o se llena el buffer
+               if (byteIngresado == '\r' || index >= BUFFER_SIZE - 1) {
+                   buffer[index] = '\0'; // Terminar el string
+                   index = 0;            // Reiniciar el índice del buffer
 
-    // Inicia el servidor de eco
-    uart_echo_server();
+                       uartWriteString(UART_USB, buffer);
 
-    // Nunca deberíamos llegar aquí
-    return 0;
+               }
+           }
+   }
+
+
+
+   // NO DEBE LLEGAR NUNCA AQUI, debido a que a este programa se ejecuta
+   // directamenteno sobre un microcontroladore y no es llamado por ningun
+   // Sistema Operativo, como en el caso de un programa para PC.
+   return 0;
 }
